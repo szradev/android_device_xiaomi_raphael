@@ -38,8 +38,8 @@ public class BootCompletedReceiver extends BroadcastReceiver {
             if (DEBUG) Log.d(TAG, "Starting Doze service");
             DozeUtils.startService(context);
         }
-        DiracUtils.initialize(context);
         FodUtils.startService(context);
+        new DiracUtils(context);
         PopupCameraUtils.startService(context);
     }
 }
