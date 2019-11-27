@@ -45,7 +45,7 @@ import android.widget.Toast;
 
 import java.util.List;
 
-import com.android.internal.util.custom.FileUtils;
+import org.lineageos.internal.util.FileUtils;
 
 import org.lineageos.settings.R;
 import org.lineageos.settings.utils.LimitSizeList;
@@ -97,10 +97,16 @@ public class PopupCameraService extends Service {
     private static final int FREQUENT_TRIGGER_COUNT = SystemProperties.getInt("persist.sys.popup.frequent_times", 10);
     private LimitSizeList<Long> mPopupRecordList;
 
+    // Proximity sensor
+    private ProximitySensor mProximitySensor;
+    private boolean mProximityNear;
+    private boolean mShouldTryUpdateMotor;
+
     @Override
     public void onCreate() {
         mSensorManager = this.getSystemService(SensorManager.class);
         mFreeFallSensor = mSensorManager.getDefaultSensor(FREE_FALL_SENSOR_ID);
+        mProximitySensor = new ProximitySensor(this, mSensorManager, mProximityListener);
         mPopupRecordList = new LimitSizeList<>(FREQUENT_TRIGGER_COUNT);
         registerReceiver();
         try {
@@ -111,6 +117,34 @@ public class PopupCameraService extends Service {
         }
         mPopupCameraPreferences = new PopupCameraPreferences(this);
     }
+
+    private void setProximitySensor(boolean enabled) {
+        if (mProximitySensor == null) return;
+        if (enabled) {
+            if (DEBUG) Log.d(TAG, "Proximity sensor enabling");
+            mProximitySensor.enable();
+        } else {
+            if (DEBUG) Log.d(TAG, "Proximity sensor disabling");
+            mProximitySensor.disable();
+        }
+    }
+
+    private ProximitySensor.ProximityListener mProximityListener =
+            new ProximitySensor.ProximityListener() {
+        public void onEvent(boolean isNear, long timestamp) {
+            mProximityNear = isNear;
+            if (DEBUG) Log.d(TAG, "Proximity sensor: isNear " + mProximityNear);
+            if (!mProximityNear && mShouldTryUpdateMotor){
+                if (DEBUG) Log.d(TAG, "Proximity sensor: mShouldTryUpdateMotor " + mShouldTryUpdateMotor);
+                mShouldTryUpdateMotor = false;
+                updateMotor();
+            }
+        }
+        public void onInit(boolean isNear, long timestamp) {
+            if (DEBUG) Log.d(TAG, "Proximity sensor init : " + isNear);
+            mProximityNear = isNear;
+        }
+    };
 
     private void checkFrequentOperate() {
         mPopupRecordList.add(Long.valueOf(SystemClock.elapsedRealtime()));
@@ -201,13 +235,15 @@ public class PopupCameraService extends Service {
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
         if (DEBUG) Log.d(TAG, "Starting service");
+        setProximitySensor(true);
         return START_STICKY;
     }
 
     @Override
     public void onDestroy() {
         if (DEBUG) Log.d(TAG, "Destroying service");
-        this.unregisterReceiver(mIntentReceiver);
+        setProximitySensor(false);
+        unregisterReceiver(mIntentReceiver);
         super.onDestroy();
     }
 
@@ -221,8 +257,8 @@ public class PopupCameraService extends Service {
         filter.addAction("android.intent.action.ACTION_SHUTDOWN");
         filter.addAction("android.intent.action.SCREEN_ON");
         filter.addAction("android.intent.action.SCREEN_OFF");
-        filter.addAction("android.intent.action.CAMERA_STATUS_CHANGED");
-        filter.addAction("android.intent.action.ACTIVE_PACKAGE_CHANGED");
+        filter.addAction("lineageos.intent.action.CAMERA_STATUS_CHANGED");
+        filter.addAction("lineageos.intent.action.ACTIVE_PACKAGE_CHANGED");
         this.registerReceiver(mIntentReceiver, filter);
     }
 
@@ -230,8 +266,8 @@ public class PopupCameraService extends Service {
         @Override
         public void onReceive(Context context, Intent intent) {
             final String action = intent.getAction();
-            if (android.content.Intent.ACTION_CAMERA_STATUS_CHANGED.equals(action)) {
-               mCameraState = intent.getExtras().getString(android.content.Intent.EXTRA_CAMERA_STATE);
+            if (lineageos.content.Intent.ACTION_CAMERA_STATUS_CHANGED.equals(action)) {
+               mCameraState = intent.getExtras().getString(lineageos.content.Intent.EXTRA_CAMERA_STATE);
                updateMotor();
             } else if ("android.intent.action.SCREEN_OFF".equals(action)) {
                 if (mCameraState.equals(openCameraState)){
@@ -255,11 +291,15 @@ public class PopupCameraService extends Service {
                         goBackHome();
                         return;
                     }else if (mCameraState.equals(openCameraState) && (status == MOTOR_STATUS_TAKEBACK_OK || status == MOTOR_STATUS_CALIB_OK)) {
-                        lightUp();
-                        playSoundEffect(openCameraState);
-                        mMotor.popupMotor(1);
-                        mSensorManager.registerListener(mFreeFallListener, mFreeFallSensor, SensorManager.SENSOR_DELAY_NORMAL);
-                        checkFrequentOperate();
+                        if (!mProximityNear){
+                            lightUp();
+                            playSoundEffect(openCameraState);
+                            mMotor.popupMotor(1);
+                            mSensorManager.registerListener(mFreeFallListener, mFreeFallSensor, SensorManager.SENSOR_DELAY_NORMAL);
+                            checkFrequentOperate();
+                        }else{
+                            mShouldTryUpdateMotor = true;
+                        }
                     } else if (mCameraState.equals(closeCameraState) && (status == MOTOR_STATUS_POPUP_OK || status == MOTOR_STATUS_CALIB_OK)) {
                         lightUp();
                         playSoundEffect(closeCameraState);
