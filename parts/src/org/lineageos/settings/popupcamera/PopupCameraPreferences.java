@@ -28,7 +28,6 @@ public class PopupCameraPreferences {
     private static final boolean LED_EFFECT_DEFAULT_VALUE = true;
     private static final String SOUND_EFFECT_KEY = "popup_sound_effect";
     private static final String SOUND_EFFECT_DEFAULT_VALUE = "0";
-    private SharedPreferences mSharedPrefs;
 
     public PopupCameraPreferences(Context context) {
         mSharedPrefs = PreferenceManager.getDefaultSharedPreferences(context);
