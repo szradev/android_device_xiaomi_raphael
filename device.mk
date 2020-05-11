@@ -99,9 +99,13 @@ PRODUCT_BOOT_JARS += \
 # Init
 PRODUCT_PACKAGES += \
     init.mi_thermald.rc \
+<<<<<<< HEAD
     init.qcom.rc \
     init.qcom.post_boot.sh \
     init.safailnet.rc
+=======
+    init.qcom.rc
+>>>>>>> parent of aa95370... raphael: Introduce 'SafailNet'
 
 # Input
 PRODUCT_COPY_FILES += \
