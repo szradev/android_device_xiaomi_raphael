@@ -160,6 +160,9 @@ TARGET_TAP_TO_WAKE_NODE := "/dev/input/event3"
 # Telephony
 TARGET_USES_ALTERNATIVE_MANUAL_NETWORK_SELECT := true
 
+TARGET_USES_FOD_HACK := true
+TARGET_HAS_FOD := true
+
 # Treble
 BOARD_VNDK_VERSION := current
 PRODUCT_FULL_TREBLE_OVERRIDE := true
@@ -170,3 +173,4 @@ BOARD_AVB_MAKE_VBMETA_IMAGE_ARGS += --flag 2
 
 # Inherit from the proprietary version
 -include vendor/xiaomi/raphael/BoardConfigVendor.mk
+
